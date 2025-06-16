@@ -1,171 +1,160 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
-import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import Select from 'react-select';
+import Slider from 'rc-slider';
+import 'rc-slider/assets/index.css';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import './PropertyFilterPage.css';
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7f50', '#8dd1e1', '#a4de6c', '#d0ed57', '#d8854f'];
 
 export default function PropertyFilterPage() {
-  const [properties, setProperties] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [filters, setFilters] = useState({ decades: [], locations: [], types: [], unitsRange: 1000 })
-  const [viewMode, setViewMode] = useState('all')
-  const [perUnit, setPerUnit] = useState(false)
+  const [allExpenses, setAllExpenses] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [vintages, setVintages] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [selectedVintages, setSelectedVintages] = useState([]);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [unitRange, setUnitRange] = useState([0, 1000]);
+  const [viewMode, setViewMode] = useState('all');
+  const [perUnit, setPerUnit] = useState(false);
 
   useEffect(() => {
-    fetchProperties()
-  }, [])
+    fetchProperties();
+  }, []);
 
   async function fetchProperties() {
-    const { data, error } = await supabase.from('monthly_expenses_with_properties').select('*')
-    if (error) console.error('Fetch error:', error)
-    else {
-      console.log('Fetched data:', data)
-      setProperties(data)
-      setFiltered(data)
-    }
+    const { data, error } = await supabase.from('monthly_expenses').select('*, properties(*)');
+    if (error) return console.error('Fetch error:', error);
+
+    setAllExpenses(data);
+    setFiltered(data);
+
+    const allVintages = Array.from(new Set(data.map(row => Math.floor(row.properties.vintage_year / 10) * 10)));
+    const allLocations = Array.from(new Set(data.map(row => row.properties.location)));
+    const allTypes = Array.from(new Set(data.map(row => row.properties.property_type)));
+
+    setVintages(allVintages);
+    setLocations(allLocations);
+    setTypes(allTypes);
   }
+useEffect(() => {
+  let data = allExpenses.filter(row => {
+    const vintageDecade = Math.floor(row.properties.vintage_year / 10) * 10;
+    const inVintage = selectedVintages.length === 0 || selectedVintages.includes(vintageDecade);
+    const inLocation = selectedLocations.length === 0 || selectedLocations.includes(row.properties.location);
+    const inType = selectedTypes.length === 0 || selectedTypes.includes(row.properties.property_type);
+    const inUnits = row.properties.number_of_units >= unitRange[0] && row.properties.number_of_units <= unitRange[1];
+    return inVintage && inLocation && inType && inUnits;
+  });
 
-  function getDecade(year) {
-    return year ? `${Math.floor(year / 10) * 10}s` : ''
-  }
+  if (viewMode === 't3' || viewMode === 't12') {
+    const grouped = data.reduce((acc, row) => {
+      const pid = row.property_id;
+      if (!acc[pid]) acc[pid] = [];
+      acc[pid].push(row);
+      return acc;
+    }, {});
 
-  function handleFilterChange(e) {
-    const { name, value, type, checked } = e.target
+    data = Object.values(grouped).flatMap(group => {
+      const sorted = group.sort((a, b) => {
+        if (b.year !== a.year) return b.year - a.year;
+        return b.month - a.month;
+      });
 
-    if (type === 'checkbox') {
-      const newSet = filters[name].includes(value)
-        ? filters[name].filter((v) => v !== value)
-        : [...filters[name], value]
-      setFilters({ ...filters, [name]: newSet })
-    } else if (name === 'unitsRange') {
-      setFilters({ ...filters, unitsRange: parseInt(value) })
-    }
-  }
+      if (viewMode === 't3') return sorted.slice(0, 3);
 
-  useEffect(() => {
-    let result = properties
-    if (filters.decades.length > 0) {
-      result = result.filter(p => filters.decades.includes(getDecade(p.vintage_year)))
-    }
-    if (filters.locations.length > 0) {
-      result = result.filter(p => filters.locations.includes(p.location))
-    }
-    if (filters.types.length > 0) {
-      result = result.filter(p => filters.types.includes(p.property_type))
-    }
-    result = result.filter(p => p.number_of_units <= filters.unitsRange)
-    setFiltered(result)
-  }, [filters, properties])
-
-  function getFilteredExpenses() {
-    let grouped = {}
-    for (let row of filtered) {
-      const id = row.property_id
-      if (!grouped[id]) grouped[id] = []
-      grouped[id].push(row)
-    }
-
-    const sorted = Object.values(grouped).flatMap(rows => {
-      const sortedRows = [...rows].sort((a, b) => b.year - a.year || b.month - a.month)
-      let sliced = viewMode === 't3' ? sortedRows.slice(0, 3) : viewMode === 't12' ? sortedRows.slice(0, 12) : sortedRows
-
-      if (perUnit && sliced.length > 0) {
-        sliced = sliced.map(e => {
-          const units = e.number_of_units || 1
-          return Object.fromEntries(
-            Object.entries(e).map(([k, v]) => [k, typeof v === 'number' ? v / units : v])
-          )
-        })
+      if (viewMode === 't12') {
+        const slice = sorted.slice(0, 12);
+        const combined = slice.reduce((acc, row) => {
+          for (const key in row) {
+            if (typeof row[key] === 'number') {
+              acc[key] = (acc[key] || 0) + row[key];
+            } else if (!acc[key]) {
+              acc[key] = row[key];
+            }
+          }
+          return acc;
+        }, {});
+        combined.properties = slice[0].properties;
+        combined.number_of_units = slice[0].properties?.number_of_units || 1;
+        return [combined];
       }
-      return sliced
-    })
 
-    return sorted
+      return group;
+    });
   }
 
-  const uniqueDecades = [...new Set(properties.map(p => getDecade(p.vintage_year)).filter(Boolean))]
-  const uniqueLocations = [...new Set(properties.map(p => p.location).filter(Boolean))]
-
-  const avgExpensesByCategory = (() => {
-    const data = getFilteredExpenses()
-    const categories = ['payroll', 'admin', 'marketing', 'repairs_maintenance', 'turnover', 'utilities', 'taxes', 'insurance', 'management_fees']
-    const totals = {}
-    let totalWeightedSqft = 0
-
-    for (let row of data) {
-      const sqft = row.avg_sqft_per_unit || 1
-      totalWeightedSqft += sqft
-      for (let cat of categories) {
-        if (!totals[cat]) totals[cat] = 0
-        totals[cat] += (row[cat] || 0) * sqft
+  if (perUnit) {
+    data = data.map(row => {
+      const units = row.properties?.number_of_units || row.number_of_units || 1;
+      const divided = {};
+      for (const [key, value] of Object.entries(row)) {
+        if (typeof value === 'number' && !['month', 'year'].includes(key)) {
+          divided[key] = value / units;
+        } else {
+          divided[key] = value;
+        }
       }
-    }
+      divided.properties = row.properties; // maintain property reference
+      return divided;
+    });
+  }
 
-    return categories.map(cat => ({ name: cat.replace('_', ' '), value: totals[cat] / (totalWeightedSqft || 1) }))
-  })()
+  setFiltered(data);
+}, [selectedVintages, selectedLocations, selectedTypes, unitRange, viewMode, perUnit, allExpenses]);
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28CF6', '#FF6B6B', '#8884D8', '#FF4444', '#22B573']
+
+  const pieData = ['payroll', 'admin', 'marketing', 'repairs_maintenance', 'turnover', 'utilities', 'taxes', 'insurance', 'management_fees']
+  .map(key => {
+    const total = filtered.reduce((sum, row) => sum + (row[key] || 0), 0);
+    return {
+      name: key,
+      value: Math.round(total),
+      label: `$${Math.round(total).toLocaleString()}`
+    };
+  });
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'Arial' }}>
-      <h1 style={{ marginBottom: '20px' }}>📊 Filter Properties</h1>
+    <div className="filter-page">
+      <h1>Property Filters</h1>
 
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
+      <div className="filter-controls">
         <div>
-          <label><strong>Vintage Decade:</strong></label><br />
-          <select multiple name="decades" onChange={e => {
-            const options = [...e.target.selectedOptions].map(o => o.value)
-            setFilters({ ...filters, decades: options })
-          }}>
-            {uniqueDecades.length === 0 ? <option disabled>No options</option> :
-              uniqueDecades.map(decade => <option key={decade} value={decade}>{decade}</option>)}
-          </select>
+          <label>Vintage:</label>
+          <Select isMulti options={vintages.map(v => ({ value: v, label: v + 's' }))} onChange={vals => setSelectedVintages(vals.map(v => v.value))} />
         </div>
-
         <div>
-          <label><strong>Location:</strong></label><br />
-          <select multiple name="locations" onChange={e => {
-            const options = [...e.target.selectedOptions].map(o => o.value)
-            setFilters({ ...filters, locations: options })
-          }}>
-            {uniqueLocations.length === 0 ? <option disabled>No options</option> :
-              uniqueLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-          </select>
+          <label>Location:</label>
+          <Select isMulti options={locations.map(l => ({ value: l, label: l }))} onChange={vals => setSelectedLocations(vals.map(v => v.value))} />
         </div>
-
         <div>
-          <strong>Property Type:</strong><br />
-          {['Garden', 'High Rise'].map(type => (
-            <label key={type} style={{ marginLeft: '10px' }}>
-              <input type="checkbox" name="types" value={type} onChange={handleFilterChange} /> {type}
-            </label>
-          ))}
+          <label>Property Type:</label>
+          <Select isMulti options={types.map(t => ({ value: t, label: t }))} onChange={vals => setSelectedTypes(vals.map(v => v.value))} />
         </div>
-
         <div>
-          <strong>Max Number of Units:</strong><br />
-          <input type="range" name="unitsRange" min="0" max="1000" value={filters.unitsRange} onChange={handleFilterChange} style={{ width: '300px' }} />
-          <span style={{ marginLeft: '10px' }}>{filters.unitsRange}</span>
+          <label>Units:</label>
+          <Slider range min={0} max={1000} defaultValue={[0, 1000]} onAfterChange={val => setUnitRange(val)} />
+        </div>
+        <div className="view-toggle">
+          <button onClick={() => setViewMode('t3')}>T3</button>
+          <button onClick={() => setViewMode('t12')}>T12</button>
+          <button onClick={() => setViewMode('all')}>All</button>
+          <button onClick={() => setPerUnit(prev => !prev)}>{perUnit ? 'Show Totals' : 'Show Per Unit'}</button>
         </div>
       </div>
 
-      <div style={{ marginBottom: '16px' }}>
-        <button onClick={() => setViewMode('t3')}>T3</button>
-        <button onClick={() => setViewMode('t12')}>T12</button>
-        <button onClick={() => setViewMode('all')}>All</button>
-        <button onClick={() => setPerUnit(prev => !prev)}>
-          {perUnit ? 'Show Total Expenses' : 'Show Per Unit'}
-        </button>
-      </div>
-
-      <table border="1" cellPadding="8" style={{ width: '100%', marginBottom: '24px' }}>
+      <table className="expense-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Month</th>
-            <th>Year</th>
+            <th>Property</th>
+            <th>Date</th>
             <th>Payroll</th>
             <th>Admin</th>
             <th>Marketing</th>
-            <th>Repairs</th>
+            <th>Repairs & Maint.</th>
             <th>Turnover</th>
             <th>Utilities</th>
             <th>Taxes</th>
@@ -174,38 +163,35 @@ export default function PropertyFilterPage() {
           </tr>
         </thead>
         <tbody>
-          {getFilteredExpenses().map((e, i) => (
-            <tr key={i}>
-              <td>{e.name}</td>
-              <td>{e.month}</td>
-              <td>{e.year}</td>
-              <td>{e.payroll?.toFixed(2)}</td>
-              <td>{e.admin?.toFixed(2)}</td>
-              <td>{e.marketing?.toFixed(2)}</td>
-              <td>{e.repairs_maintenance?.toFixed(2)}</td>
-              <td>{e.turnover?.toFixed(2)}</td>
-              <td>{e.utilities?.toFixed(2)}</td>
-              <td>{e.taxes?.toFixed(2)}</td>
-              <td>{e.insurance?.toFixed(2)}</td>
-              <td>{e.management_fees?.toFixed(2)}</td>
-            </tr>
+          {filtered.map((row, idx) => (
+          <tr key={idx}>
+            <td>{row.properties?.name}</td>
+            <td>{row.month && row.year ? `${row.month}/${row.year}` : 'T12 Total'}</td>
+            <td>{row.payroll != null ? `$${Math.round(row.payroll).toLocaleString()}` : ''}</td>
+            <td>{row.admin != null ? `$${Math.round(row.admin).toLocaleString()}` : ''}</td>
+            <td>{row.marketing != null ? `$${Math.round(row.marketing).toLocaleString()}` : ''}</td>
+            <td>{row.repairs_maintenance != null ? `$${Math.round(row.repairs_maintenance).toLocaleString()}` : ''}</td>
+            <td>{row.turnover != null ? `$${Math.round(row.turnover).toLocaleString()}` : ''}</td>
+            <td>{row.utilities != null ? `$${Math.round(row.utilities).toLocaleString()}` : ''}</td>
+            <td>{row.taxes != null ? `$${Math.round(row.taxes).toLocaleString()}` : ''}</td>
+            <td>{row.insurance != null ? `$${Math.round(row.insurance).toLocaleString()}` : ''}</td>
+            <td>{row.management_fees != null ? `$${Math.round(row.management_fees).toLocaleString()}` : ''}</td>
+          </tr>
           ))}
         </tbody>
       </table>
 
-      <h2>Average Expense Breakdown (Weighted by Avg Sqft/Unit)</h2>
-      <PieChart width={600} height={300}>
-        <Pie
-          data={avgExpensesByCategory}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          outerRadius={100}
-          fill="#8884d8"
-          label
-        >
-          {avgExpensesByCategory.map((entry, index) => (
+      <h2>Expense Breakdown (Pie Chart)</h2>
+      <PieChart width={400} height={300}>
+        <Pie dataKey="value" 
+             data={pieData} 
+             cx="50%"
+             cy="50%" 
+             outerRadius={100} 
+             fill="#8884d8"
+             label={({ name, value }) => `${name}: $${value.toLocaleString()}`}
+             >
+          {pieData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
@@ -213,5 +199,6 @@ export default function PropertyFilterPage() {
         <Legend />
       </PieChart>
     </div>
-  )
+  );
 }
+
