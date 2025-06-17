@@ -10,9 +10,9 @@ export default function Navbar() {
       alignItems: 'center',
       justifyContent: 'space-between'
     }}>
-      <div style={{ fontWeight: 'bold', fontSize: '20px' }}>🏢 PropTracker</div>
+      <div style={{ fontWeight: 'bold', fontSize: '20px' }}>Database Project</div>
       <div style={{ display: 'flex', gap: '16px' }}>
-        <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>Property List</Link>
+        <Link to="/properties" style={{ color: 'white', textDecoration: 'none' }}>Property List</Link>
         <Link to="/filter" style={{ color: 'white', textDecoration: 'none' }}>Filter Properties</Link>
       </div>
     </nav>

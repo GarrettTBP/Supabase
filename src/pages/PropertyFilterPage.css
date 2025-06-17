@@ -1,8 +1,18 @@
+
+/* ---------- PAGE ---------- */
 .filter-page {
   padding: 24px;
   font-family: Arial, sans-serif;
+  background: #fafafa;
 }
 
+.filter-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* ---------- FILTER BAR ---------- */
 .filter-controls {
   display: flex;
   flex-wrap: wrap;
@@ -11,37 +21,159 @@
 }
 
 .filter-controls > div {
-  flex: 1 1 200px;
+  flex: 1 1 220px;
 }
 
 .view-toggle button {
   margin-top: 10px;
   margin-right: 10px;
   padding: 6px 12px;
-  background-color: #007BFF;
+  background-color: #007bff;
   border: none;
   color: white;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .view-toggle button:hover {
   background-color: #0056b3;
 }
 
+/* ---------- DASHBOARD GRID ---------- */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+/* -------- BLUE STAT BOXES -------- */
+/* -------- BLUE BOXES CLEANUP -------- */
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  background-color: #007bff;
+  color: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: capitalize;
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+
+/* ---------- TABLE ---------- */
+.table-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
 .expense-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
-  margin-bottom: 40px;
 }
 
 .expense-table th,
 .expense-table td {
   border: 1px solid #ddd;
-  padding: 8px;
+  padding: 6px 8px;
   text-align: center;
+  font-size: 13px;
 }
 
 .expense-table th {
   background-color: #f4f4f4;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ---------- CHART BOX ---------- */
+.chart-container {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.chart-title {
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* ---------- BOXPLOT SECTION ---------- */
+.boxplot-section {
+  margin-top: 32px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.boxplot-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.boxplot-select {
+  min-width: 200px;
+}
+
+/* clickable property names in the expense table */
+.expense-table td .table-link {
+  color: #007bff;
+  text-decoration: none;
+  cursor: pointer;
+}
+.expense-table td .table-link:hover {
+  text-decoration: underline;
 }

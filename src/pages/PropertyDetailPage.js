@@ -4,16 +4,15 @@ import { supabase } from '../supabaseClient'
 import '../App.css';
 
 function formatMonthYear(month, year) {
-  const date = new Date(year, month - 1); // month is 0-indexed
-  return date.toLocaleString('default', { month: 'short', year: 'numeric' }); // e.g. "Mar 2024"
+  const date = new Date(year, month - 1);
+  return date.toLocaleString('default', { month: 'short', year: 'numeric' });
 }
-
 
 export default function PropertyDetailPage() {
   const { id } = useParams()
   const [property, setProperty] = useState(null)
   const [expenses, setExpenses] = useState([])
-  const [viewMode, setViewMode] = useState('all') // 't3', 't12', 'all'
+  const [viewMode, setViewMode] = useState('all')
   const [perUnit, setPerUnit] = useState(false)
 
   useEffect(() => {
@@ -32,23 +31,21 @@ export default function PropertyDetailPage() {
     else setProperty(data)
   }
 
-async function fetchExpenses() {
-  const { data, error } = await supabase
-    .from('monthly_expenses')
-    .select('*')
-    .eq('property_id', id) // use dynamic route param
-    .order('year', { ascending: false })
-    .order('month', { ascending: false })
+  async function fetchExpenses() {
+    const { data, error } = await supabase
+      .from('monthly_expenses')
+      .select('*')
+      .eq('property_id', id)
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
 
-  if (error) {
-    console.error('Expense fetch error:', error)
-  } else {
-    console.log('✅ Fetched expenses:', data)
-    setExpenses(data)
+    if (error) {
+      console.error('Expense fetch error:', error)
+    } else {
+      console.log('✅ Fetched expenses:', data)
+      setExpenses(data)
+    }
   }
-}
-
-
 
   function getFilteredExpenses() {
     if (!expenses || expenses.length === 0) return []
@@ -61,32 +58,52 @@ async function fetchExpenses() {
       return filtered.map(e => {
         const divisor = property.number_of_units || 1
         return Object.fromEntries(
-  Object.entries(e).map(([key, val]) => {
-    if (key === 'month' || key === 'year') return [key, val]; // keep as-is
-    return [key, typeof val === 'number' ? val / divisor : val];
-  })
-)
-
+          Object.entries(e).map(([key, val]) => {
+            if (key === 'month' || key === 'year') return [key, val];
+            return [key, typeof val === 'number' ? val / divisor : val];
+          })
+        )
       })
     }
     return filtered
   }
 
   function handleDownloadT12() {
-    // Placeholder for actual T12 file link or logic
-    alert('T12 download functionality coming soon!')
+  if (property?.t12_url) {
+    const link = document.createElement('a')
+    link.href = property.t12_url
+    link.download = '' // Let browser decide or set filename here
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } else {
+    alert('No T12 file available for this property.')
   }
+}
+
 
   return (
     <div className="container">
       {property ? (
         <>
-          <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>{property.name}</h1>
-          <p><strong>Type:</strong> {property.property_type}</p>
-          <p><strong>Location:</strong> {property.location}</p>
-          <p><strong>Units:</strong> {property.number_of_units}</p>
-          <p><strong>Vintage Year:</strong> {property.vintage_year}</p>
-          <p><strong>Avg Sqft/Unit:</strong> {property.avg_sqft_per_unit}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>{property.name}</h1>
+              <p><strong>Type:</strong> {property.property_type}</p>
+              <p><strong>Location:</strong> {property.location}</p>
+              <p><strong>Units:</strong> {property.number_of_units}</p>
+              <p><strong>Vintage Year:</strong> {property.vintage_year}</p>
+              <p><strong>Avg Sqft/Unit:</strong> {property.avg_sqft_per_unit}</p>
+            </div>
+            {property.image_url && (
+              <img
+                 src={property.image_url}
+                 alt={property.name}
+                 style={{ width: '350px', height: 'auto', borderRadius: '8px' }}
+              />
+
+            )}
+          </div>
 
           <div style={{ marginTop: '24px' }}>
             <h2>Monthly Expenses</h2>
@@ -120,15 +137,15 @@ async function fetchExpenses() {
                 {getFilteredExpenses().map((row, idx) => (
                   <tr key={idx}>
                     <td>{formatMonthYear(row.month, row.year)}</td>
-                    <td>{row.payroll?.toFixed(2)}</td>
-                    <td>{row.admin?.toFixed(2)}</td>
-                    <td>{row.marketing?.toFixed(2)}</td>
-                    <td>{row.repairs_maintenance?.toFixed(2)}</td>
-                    <td>{row.turnover?.toFixed(2)}</td>
-                    <td>{row.utilities?.toFixed(2)}</td>
-                    <td>{row.taxes?.toFixed(2)}</td>
-                    <td>{row.insurance?.toFixed(2)}</td>
-                    <td>{row.management_fees?.toFixed(2)}</td>
+                    <td>${Math.round(row.payroll || 0)}</td>
+                    <td>${Math.round(row.admin || 0)}</td>
+                    <td>${Math.round(row.marketing || 0)}</td>
+                    <td>${Math.round(row.repairs_maintenance || 0)}</td>
+                    <td>${Math.round(row.turnover || 0)}</td>
+                    <td>${Math.round(row.utilities || 0)}</td>
+                    <td>${Math.round(row.taxes || 0)}</td>
+                    <td>${Math.round(row.insurance || 0)}</td>
+                    <td>${Math.round(row.management_fees || 0)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -140,4 +157,4 @@ async function fetchExpenses() {
       )}
     </div>
   )
-} 
+}
