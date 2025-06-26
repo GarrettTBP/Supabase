@@ -1,32 +1,92 @@
-// src/App.js
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import HideableNavbar from './components/HideableNavbar'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import HideableNavbar from './components/HideableNavbar';
+import ProtectedRoute from './components/ProtectedRoute';
 
-import LoginPage from './pages/LoginPage'
-import PropertyListPage from './pages/PropertyListPage'
-import PropertyDetailPage from './pages/PropertyDetailPage'
-import PropertyFilterPage from './pages/PropertyFilterPage'
+import LoginPage from './pages/LoginPage';
+import PropertyListPage from './pages/PropertyListPage';
+import PropertyFilterPage from './pages/PropertyFilterPage';
+import PropertyDetailPage from './pages/PropertyDetailPage';
+import OwnedPropertiesPage from './pages/OwnedPropertiesPage';
+import OwnedPropertyDetailPage from './pages/OwnedPropertyDetailPage';
+import MappingPage from './pages/MappingPage';
+import MapPage from './pages/MapPage';
 
 function App() {
   return (
-    <Router>
-      {/* only show navbar once unlocked? if you want it hidden on login, move this inside the protected routes below */}
-      <HideableNavbar />
+    <AuthProvider>
+      <Router>
+        <HideableNavbar />
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route
+  path="/mapping"
+  element={
+    <ProtectedRoute allowed={['admin']}>
+      <MappingPage />
+    </ProtectedRoute>
+  }
+/>
 
-      <Routes>
-        {/* 1) root shows the login gate */}
-        <Route path="/" element={<LoginPage />} />
+          {/* acquisitions-only */}
+          <Route
+            path="/properties"
+            element={
+              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+                <PropertyListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/filter"
+            element={
+              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+                <PropertyFilterPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* 2) once password is correct you navigate to /properties */}
-        <Route path="/properties" element={<PropertyListPage />} />
-        <Route path="/filter"      element={<PropertyFilterPage />} />
-        <Route path="/property/:id" element={<PropertyDetailPage />} />
+          <Route
+            path="/map"
+            element={
+              <ProtectedRoute allowed={['acquisitions']}>
+                <MapPage />
+              </ProtectedRoute>
+          }
+         />
+          <Route
+            path="/property/:id"
+            element={
+              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+                <PropertyDetailPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* (optional) catch-all redirect back to login */}
-        <Route path="*" element={<LoginPage />} />
-      </Routes>
-    </Router>
-  )
+          {/* asset-management-only */}
+          <Route
+            path="/owned-properties"
+            element={
+              <ProtectedRoute allowedRoles={[ 'asset_management' ]}>
+                <OwnedPropertiesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/owned-property/:id"
+            element={
+              <ProtectedRoute allowedRoles={[ 'asset_management' ]}>
+                <OwnedPropertyDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="/not-authorized" element={<div>Not authorized</div>} />
+          <Route path="*" element={<LoginPage />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

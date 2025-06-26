@@ -1,0 +1,18 @@
+/* src/pages/MappingPage.css */
+.mapping-page {
+  padding: 24px;
+  font-family: Arial, sans-serif;
+  background: #fafafa;
+  min-height: 100vh;
+}
+
+.mapping-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.mapping-desc {
+  margin-bottom: 16px;
+  color: #555;
+}
