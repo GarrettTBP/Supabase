@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../context/AuthContext'
 import '../App.css';
 
 function formatMonthYear(month, year) {
@@ -10,14 +11,18 @@ function formatMonthYear(month, year) {
 
 export default function PropertyDetailPage() {
   const { id } = useParams()
+  const { user } = useAuth()
   const [property, setProperty] = useState(null)
   const [expenses, setExpenses] = useState([])
+  const [comments, setComments] = useState([])
+  const [newComment, setNewComment] = useState('')
   const [viewMode, setViewMode] = useState('all')
   const [perUnit, setPerUnit] = useState(false)
 
   useEffect(() => {
     fetchProperty()
     fetchExpenses()
+    fetchComments()
   }, [id])
 
   async function fetchProperty() {
@@ -42,14 +47,63 @@ export default function PropertyDetailPage() {
     if (error) {
       console.error('Expense fetch error:', error)
     } else {
-      console.log('✅ Fetched expenses:', data)
       setExpenses(data)
     }
   }
 
-  function getFilteredExpenses() {
-    if (!expenses || expenses.length === 0) return []
+  async function fetchComments() {
+    // get recent comments
+    const { data: commentData, error: commentError } = await supabase
+      .from('comments')
+      .select('id, content, username, created_at')
+      .eq('property_id', id)
+      .order('created_at', { ascending: true })
 
+    if (commentError) {
+      console.error('Comment fetch error:', commentError)
+      return
+    }
+
+    // fetch avatar URLs for commenters
+    const usernames = [...new Set(commentData.map(c => c.username))]
+    const { data: profilesData, error: profileError } = await supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .in('username', usernames)
+
+    if (profileError) console.error('Profile fetch error:', profileError)
+
+    const avatarMap = (profilesData || []).reduce((acc, p) => {
+      acc[p.username] = p.avatar_url
+      return acc
+    }, {})
+
+    setComments(
+      commentData.map(c => ({
+        ...c,
+        avatar_url: avatarMap[c.username] || null
+      }))
+    )
+  }
+
+  async function handleAddComment(e) {
+    e.preventDefault()
+    const text = newComment.trim()
+    if (!text) return
+
+    const { error } = await supabase
+      .from('comments')
+      .insert([{ property_id: id, content: text, username: user }])
+
+    if (error) console.error('Comment insert error:', error)
+    else {
+      setNewComment('')
+      fetchComments()
+    }
+  }
+
+  function getFilteredExpenses() {
+    if (!expenses.length) return []
     let filtered = expenses
     if (viewMode === 't3') filtered = expenses.slice(0, 3)
     else if (viewMode === 't12') filtered = expenses.slice(0, 12)
@@ -59,8 +113,8 @@ export default function PropertyDetailPage() {
         const divisor = property.number_of_units || 1
         return Object.fromEntries(
           Object.entries(e).map(([key, val]) => {
-            if (key === 'month' || key === 'year') return [key, val];
-            return [key, typeof val === 'number' ? val / divisor : val];
+            if (key === 'month' || key === 'year') return [key, val]
+            return [key, typeof val === 'number' ? val / divisor : val]
           })
         )
       })
@@ -69,18 +123,17 @@ export default function PropertyDetailPage() {
   }
 
   function handleDownloadT12() {
-  if (property?.t12_url) {
-    const link = document.createElement('a')
-    link.href = property.t12_url
-    link.download = '' // Let browser decide or set filename here
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  } else {
-    alert('No T12 file available for this property.')
+    if (property?.t12_url) {
+      const link = document.createElement('a')
+      link.href = property.t12_url
+      link.download = ''
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else {
+      alert('No T12 file available for this property.')
+    }
   }
-}
-
 
   return (
     <div className="container">
@@ -97,17 +150,15 @@ export default function PropertyDetailPage() {
             </div>
             {property.image_url && (
               <img
-                 src={property.image_url}
-                 alt={property.name}
-                 style={{ width: '350px', height: 'auto', borderRadius: '8px' }}
+                src={property.image_url}
+                alt={property.name}
+                style={{ width: '350px', height: 'auto', borderRadius: '8px' }}
               />
-
             )}
           </div>
 
           <div style={{ marginTop: '24px' }}>
             <h2>Monthly Expenses</h2>
-
             <div style={{ marginBottom: '12px' }}>
               <button onClick={() => setViewMode('t3')}>T3</button>
               <button onClick={() => setViewMode('t12')}>T12</button>
@@ -117,7 +168,6 @@ export default function PropertyDetailPage() {
               </button>
               <button onClick={handleDownloadT12}>Link to T12</button>
             </div>
-
             <table border="1" cellPadding="8">
               <thead>
                 <tr>
@@ -150,6 +200,44 @@ export default function PropertyDetailPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Comments Section */}
+          <div style={{ marginTop: '32px' }}>
+            <h2>Comments</h2>
+            <form onSubmit={handleAddComment} style={{ marginBottom: '16px' }}>
+              <textarea
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                rows={3}
+                placeholder="Leave a comment..."
+                style={{ width: '100%', padding: '8px' }}
+              />
+              <button type="submit" style={{ marginTop: '8px' }}>Post Comment</button>
+            </form>
+            <div>
+              {comments.map(c => (
+                <div key={c.id} style={{ display: 'flex', marginBottom: '16px' }}>
+                  {c.avatar_url ? (
+                    <img
+                      src={c.avatar_url}
+                      alt={c.username}
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '12px' }}
+                    />
+                  ) : (
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#ccc', marginRight: '12px' }} />
+                  )}
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                      {c.username} <span style={{ fontWeight: 'normal', color: '#666', fontSize: '12px' }}>
+                        {new Date(c.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '4px' }}>{c.content}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       ) : (

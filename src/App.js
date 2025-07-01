@@ -19,20 +19,22 @@ function App() {
         <HideableNavbar />
         <Routes>
           <Route path="/" element={<LoginPage />} />
+
+          {/* admin-only */}
           <Route
-  path="/mapping"
-  element={
-    <ProtectedRoute allowed={['admin']}>
-      <MappingPage />
-    </ProtectedRoute>
-  }
-/>
+            path="/mapping"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <MappingPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* acquisitions-only */}
           <Route
             path="/properties"
             element={
-              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+              <ProtectedRoute allowedRoles={['acquisitions']}>
                 <PropertyListPage />
               </ProtectedRoute>
             }
@@ -40,25 +42,24 @@ function App() {
           <Route
             path="/filter"
             element={
-              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+              <ProtectedRoute allowedRoles={['acquisitions']}>
                 <PropertyFilterPage />
               </ProtectedRoute>
             }
           />
-
-          <Route
-            path="/map"
-            element={
-              <ProtectedRoute allowed={['acquisitions']}>
-                <MapPage />
-              </ProtectedRoute>
-          }
-         />
           <Route
             path="/property/:id"
             element={
-              <ProtectedRoute allowedRoles={[ 'acquisitions' ]}>
+              <ProtectedRoute allowedRoles={['acquisitions']}>
                 <PropertyDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <ProtectedRoute allowedRoles={['acquisitions']}>
+                <MapPage />
               </ProtectedRoute>
             }
           />
@@ -67,7 +68,7 @@ function App() {
           <Route
             path="/owned-properties"
             element={
-              <ProtectedRoute allowedRoles={[ 'asset_management' ]}>
+              <ProtectedRoute allowedRoles={['asset_management']}>
                 <OwnedPropertiesPage />
               </ProtectedRoute>
             }
@@ -75,7 +76,7 @@ function App() {
           <Route
             path="/owned-property/:id"
             element={
-              <ProtectedRoute allowedRoles={[ 'asset_management' ]}>
+              <ProtectedRoute allowedRoles={['asset_management']}>
                 <OwnedPropertyDetailPage />
               </ProtectedRoute>
             }
