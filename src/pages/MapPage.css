@@ -58,6 +58,13 @@
   cursor: not-allowed;
 }
 
+.remember-me {
+  display: block;
+  margin: 8px 0;
+  color: #555;
+}
+
+
 /* search bar remains inside map overlay */
 .search-form { /* unchanged */ }
 .search-input { /* unchanged */ }

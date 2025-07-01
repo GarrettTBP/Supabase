@@ -1,43 +1,62 @@
 /* src/pages/LoginPage.css */
 .login-page {
-  height: 100vh;
   display: flex;
-  flex-direction: column;    /* stack logo above the form */
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  background: #fafafa;
-  gap: 24px;                 /* space between logo and form */
+  padding: 40px;
 }
 
 .login-logo {
-  width: 300px;              /* make it bigger */
-  max-width: 80%;            /* but never exceed 80% of screen */
-  height: auto;
+  width: 120px;
+  margin-bottom: 24px;
 }
-
 
 .login-form {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 16px;
+  width: 300px;
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-field label {
+  font-weight: 500;
+  color: #333;
 }
 
 .login-input {
-  padding: 10px 14px;
-  font-size: 1rem;
+  padding: 8px;
+  font-size: 14px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  outline: none;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #555;
 }
 
 .login-button {
-  padding: 10px 16px;
-  font-size: 1rem;
+  padding: 10px;
   background-color: #007bff;
-  color: white;
+  color: #fff;
+  font-size: 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
+
 .login-button:hover {
   background-color: #0056b3;
 }
