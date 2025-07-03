@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  MapContainer,
-  TileLayer,
-  CircleMarker,
-  Popup,
-  useMap
-} from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
 import {
@@ -30,7 +24,9 @@ import './MapPage.css';
 function InitialFitBounds({ bounds }) {
   const map = useMap();
   useEffect(() => {
-    if (bounds.length) map.fitBounds(bounds, { padding: [50, 50] });
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
   }, []);
   return null;
 }
@@ -43,8 +39,6 @@ export default function MapPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [zipCode, setZipCode] = useState('');
-
-  // map instance
   const [mapInstance, setMapInstance] = useState(null);
 
   // load properties
@@ -52,16 +46,17 @@ export default function MapPage() {
     async function load() {
       const { data, error } = await supabase
         .from('properties')
-        .select(
-          'id, name, property_type, location, number_of_units, vintage_year, image_url, t12_url, latitude, longitude'
-        );
-      if (error) return console.error(error);
+        .select('id, name, property_type, location, number_of_units, vintage_year, image_url, t12_url, latitude, longitude');
+      if (error) {
+        console.error(error);
+        return;
+      }
       const cleaned = data
         .filter(p => p.latitude && p.longitude)
         .map(p => ({
           ...p,
-          latitude: +p.latitude,
-          longitude: +p.longitude
+          latitude: Number(p.latitude),
+          longitude: Number(p.longitude)
         }));
       setAllProps(cleaned);
       setFilteredProps(cleaned);
@@ -70,7 +65,7 @@ export default function MapPage() {
     load();
   }, []);
 
-  // filter by property type
+  // filter by type
   useEffect(() => {
     setFilteredProps(
       selectedTypes.length
@@ -82,15 +77,13 @@ export default function MapPage() {
   // toggle selection
   const toggleSelect = id => {
     setSelectedIds(prev => {
-      const next = prev.includes(id)
-        ? prev.filter(x => x !== id)
-        : [...prev, id];
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
       setDrawerOpen(next.length > 0);
       return next;
     });
   };
 
-  // search by ZIP code and zoom map
+  // search ZIP
   const handleZipSearch = async () => {
     const zip = zipCode.trim();
     if (!/^\d{5}$/.test(zip)) {
@@ -119,25 +112,105 @@ export default function MapPage() {
     if (!selectedIds.length) return;
     const wb = XLSX.utils.book_new();
 
-    // Property Info sheet
-    const infoData = filteredProps
-      .filter(p => selectedIds.includes(p.id))
-      .map(p => ({
-        Name: p.name,
-        Type: p.property_type,
-        Location: p.location,
-        Units: p.number_of_units,
-        T12_Link: p.t12_url
+    // 1) Overview sheet
+    const selectedProps = filteredProps.filter(p => selectedIds.includes(p.id));
+    const overviewData = selectedProps.map(p => ({
+      Name:     p.name,
+      Type:     p.property_type,
+      Location: p.location,
+      Units:    p.number_of_units,
+      T12_Link: p.t12_url
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(overviewData), 'Overview');
+
+    // 2) Sheets per property + accumulate for pivot
+    const allRows = [];
+
+    for (const p of selectedProps) {
+      const { data: expenses, error } = await supabase
+        .from('monthly_expenses')
+        .select('*')
+        .eq('property_id', p.id)
+        .order('year', { ascending: true })
+        .order('month', { ascending: true });
+
+      if (error || !expenses) continue;
+
+      // per-property sheet
+      const sheetData = expenses.map(e => ({
+        Date: `${e.month}/${e.year}`,
+        Payroll:            e.payroll,
+        Admin:              e.admin,
+        Marketing:          e.marketing,
+        Repairs_Maintenance:e.repairs_maintenance,
+        Turnover:           e.turnover,
+        Utilities:          e.utilities,
+        Taxes:              e.taxes,
+        Insurance:          e.insurance,
+        Management_Fees:    e.management_fees,
+        Units:              p.number_of_units
       }));
-    XLSX.utils.book_append_sheet(
-      wb,
-      XLSX.utils.json_to_sheet(infoData),
-      'Property Info'
-    );
+      const safeName = p.name.slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheetData), safeName);
 
-    // consolidated pivot logic (unchanged)...
-    // [existing consolidated code here]
+      // accumulate rows for consolidated pivot
+      expenses.forEach(e => {
+        const dateStr = `${e.month}/${e.year}`;
+        const units = p.number_of_units || 1;
+        [
+          ['Payroll', e.payroll],
+          ['Admin', e.admin],
+          ['Marketing', e.marketing],
+          ['Repairs_Maintenance', e.repairs_maintenance],
+          ['Turnover', e.turnover],
+          ['Utilities', e.utilities],
+          ['Taxes', e.taxes],
+          ['Insurance', e.insurance],
+          ['Management_Fees', e.management_fees]
+        ].forEach(([cat, cost]) => {
+          allRows.push({
+            Property: p.name,
+            Category: cat,
+            Date:     dateStr,
+            Cost:     cost,
+            Units:    units
+          });
+        });
+      });
+    }
 
+    // 3) Consolidated pivot sheet
+    const pivotMap = {};
+    const datesSet = new Set();
+    allRows.forEach(({ Property, Category, Date, Cost, Units }) => {
+      datesSet.add(Date);
+      if (!pivotMap[Property]) pivotMap[Property] = {};
+      if (!pivotMap[Property][Category]) pivotMap[Property][Category] = {};
+      pivotMap[Property][Category][Date] = Units ? Cost / Units : 0;
+    });
+
+    const dates = Array.from(datesSet).sort((a, b) => {
+      const [m1, y1] = a.split('/').map(Number);
+      const [m2, y2] = b.split('/').map(Number);
+      return y1 === y2 ? m1 - m2 : y1 - y2;
+    });
+
+    const header = ['Property', 'Category', ...dates];
+    const pivotRows = [];
+    Object.entries(pivotMap).forEach(([property, catMap]) => {
+      Object.entries(catMap).forEach(([category, dateMap]) => {
+        const row = { Property: property, Category: category };
+        dates.forEach(d => {
+          row[d] = dateMap[d] !== undefined ? dateMap[d].toFixed(2) : '';
+        });
+        pivotRows.push(row);
+      });
+    });
+
+    const pivotSheet = XLSX.utils.json_to_sheet(pivotRows, { header });
+    XLSX.utils.book_append_sheet(wb, pivotSheet, 'Consolidated');
+
+    // write workbook
     XLSX.writeFile(wb, 'Selected_Properties.xlsx');
   };
 
@@ -166,7 +239,7 @@ export default function MapPage() {
         </Box>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, ml: drawerOpen ? '200px' : 0, transition: 'margin 0.3s' }}>
+      <Box component="main" sx={{ flexGrow: 1, ml: drawerOpen ? '200px' : 0, transition: 'margin 0.3s' }}>  
         <Toolbar />
         <Box sx={{ display: 'flex', gap: 2, p: 2, alignItems: 'center' }}>
           <FormControl sx={{ minWidth: 200 }}>
@@ -175,7 +248,7 @@ export default function MapPage() {
               labelId="type-filter-label"
               multiple
               value={selectedTypes}
-              onChange={e => setSelectedTypes(e.target.value)}
+              onChange={e => setFilteredProps(e.target.value)}
               input={<OutlinedInput label="Property Type" />}
               renderValue={selected => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -184,14 +257,12 @@ export default function MapPage() {
               )}
             >
               {types.map(type => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
+                <MenuItem key={type} value={type}>{type}</MenuItem>
               ))}
             </Select>
           </FormControl>
 
-          <Box sx={{ position: 'relative', zIndex: 2000, display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
               label="ZIP Code"
               variant="outlined"
@@ -200,9 +271,7 @@ export default function MapPage() {
               onKeyPress={e => e.key === 'Enter' && handleZipSearch()}
               sx={{ width: 120 }}
             />
-            <Button variant="contained" onClick={handleZipSearch}>
-              Search
-            </Button>
+            <Button variant="contained" onClick={handleZipSearch}>Search</Button>
           </Box>
 
           <Button
@@ -237,8 +306,8 @@ export default function MapPage() {
                 fillOpacity: 0.8
               }}
               eventHandlers={{
-                click: () => toggleSelect(prop.id),
-                mouseover: e => e.target.openPopup(),
+                click:    () => toggleSelect(prop.id),
+                mouseover:e => e.target.openPopup(),
                 mouseout: e => e.target.closePopup()
               }}
             >
@@ -249,13 +318,7 @@ export default function MapPage() {
                       component="img"
                       src={prop.image_url}
                       alt={prop.name}
-                      sx={{
-                        width: 120,
-                        height: 80,
-                        objectFit: 'cover',
-                        borderRadius: 1,
-                        mb: 1
-                      }}
+                      sx={{ width: 120, height: 80, objectFit: 'cover', borderRadius: 1, mb: 1 }}
                     />
                   )}
                   <Typography variant="subtitle1" sx={{ color: 'primary.main' }}>
