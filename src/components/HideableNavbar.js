@@ -9,7 +9,6 @@ export default function HideableNavbar() {
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState(null);
 
-  // Load current user's avatar URL
   useEffect(() => {
     async function loadAvatar() {
       if (!user) return;
@@ -25,14 +24,24 @@ export default function HideableNavbar() {
     loadAvatar();
   }, [user]);
 
-  if (!user || pathname === '/') return null;
+  // Hide on login, dashboard, property list, filter, quick export, and property detail
+  if (
+    !user ||
+    pathname === '/' ||
+    pathname === '/dashboard' ||
+    pathname === '/properties' ||
+    pathname === '/filter' ||
+    pathname === '/quick-export' ||           // ⬅️ Quick Export page (sidebar-only)
+    pathname.startsWith('/property/')
+  ) {
+    return null;
+  }
 
   const handleLogout = () => {
     signOut();
     navigate('/');
   };
 
-  // define each team's links
   const acqLinks = [
     { to: '/properties', label: 'Property List' },
     { to: '/filter',     label: 'Filter Properties' },
@@ -41,7 +50,6 @@ export default function HideableNavbar() {
     { to: '/owned-properties', label: 'Owned Properties' },
   ];
 
-  // build the final nav array:
   let links = [];
   if (role === 'admin') {
     links = [...acqLinks, ...assetLinks];
@@ -64,8 +72,8 @@ export default function HideableNavbar() {
       justifyContent: 'space-between'
     }}>
       <div style={{ fontWeight: 'bold', fontSize: '20px' }}>
-        {role === 'admin' ? 'Admin Dashboard' 
-         : role === 'acquisitions' ? 'Acquisitions Dashboard' 
+        {role === 'admin' ? 'Admin Dashboard'
+         : role === 'acquisitions' ? 'Acquisitions Dashboard'
          : 'Asset Management'}
       </div>
 

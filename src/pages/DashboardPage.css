@@ -1,0 +1,124 @@
+.dash-wrap {
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 20% 0%, #eef3ff 0%, #f7f9fc 40%, #fbfbfb 100%);
+  padding: 28px 24px 48px;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.dash-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.brand .logo {
+  height: 54px;
+  width: auto;
+}
+
+.profile .avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.profile .avatar.placeholder { background: #d7def5; }
+
+.greeting { margin-top: 18px; }
+.greeting h1 {
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 800;
+  margin: 0;
+}
+.greeting .name { color: #1f3a8a; }
+.greeting .return { margin-top: 6px; font-size: 14px; }
+.muted { color: #6b7280; }
+.linklike {
+  background: none; border: none; padding: 0; cursor: pointer; color: #1f3a8a; font-weight: 600;
+}
+.linklike:hover { text-decoration: underline; }
+
+.primary-actions {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 18px;
+}
+
+.card-btn {
+  background: #273a64; /* deep slate */
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 28px 20px;
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(23, 28, 60, 0.18);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.card-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(23, 28, 60, 0.22);
+}
+.card-title { font-size: 22px; font-weight: 800; }
+.card-hint   { opacity: 0.9; margin-top: 6px; font-size: 14px; color: #dbeafe; }
+
+.all-features { margin-top: 30px; }
+.features-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.features-header h2 { margin: 0; font-size: 18px; color: #111827; }
+.toggle {
+  background: white; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+}
+.toggle:hover { background: #f3f4f6; }
+
+.features-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.feature-chip {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.feature-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.10);
+  background: #f9fafb;
+}
+
+.empty { color: #6b7280; padding: 12px 0; }
+
+/* All Features trigger as simple link text */
+.features-trigger{
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #1f3a8a; /* Trailbreak blue tone used elsewhere */
+  font-weight: 700; /* bold */
+  text-decoration: underline;
+  cursor: pointer;
+}
+.features-trigger:hover{ text-decoration-thickness: 2px; }
+
+/* When expanded, other pages use same card style/size */
+.more-actions{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap:18px;
+}
+
+@media (max-width: 880px) {
+  .primary-actions, .more-actions { grid-template-columns: 1fr; }
+}
