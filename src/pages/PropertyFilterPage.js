@@ -18,7 +18,8 @@ import {
   XAxis,
   YAxis,
   Line,
-  ErrorBar
+  ErrorBar,
+  LineChart, // NEW
 } from 'recharts';
 
 const COLORS = ['#8884d8','#82ca9d','#ffc658','#ff7f50','#8dd1e1','#a4de6c','#d0ed57','#d8854f'];
@@ -137,7 +138,7 @@ export default function PropertyFilterPage(){
     fetchData();
   }, []);
 
-  /* ---------- filter / view logic ---------- */
+  /* ---------- filter / view logic (table + stats) ---------- */
   useEffect(() => {
     let data = allExpenses.filter(r => {
       const decade = Math.floor((r.properties.vintage_year||0)/10)*10;
@@ -191,6 +192,65 @@ export default function PropertyFilterPage(){
 
     setFiltered(data);
   }, [allExpenses, selectedVintages, selectedTypes, selectedState, selectedCities, unitRange, viewMode, perUnit]);
+
+  /* ---------- MONTHLY trend base (always monthly, per‑unit averages) ---------- */
+  const trendData = useMemo(() => {
+    // Filter by facets (ignore viewMode aggregation) and keep only rows with month/year
+    const monthly = allExpenses.filter(r => {
+      if (!r.month || !r.year) return false;
+      const decade = Math.floor((r.properties.vintage_year||0)/10)*10;
+      const inVintage = !selectedVintages.length || selectedVintages.includes(decade);
+      const inType    = !selectedTypes.length     || selectedTypes.includes(r.properties.property_type);
+
+      const [cityRaw, stateRaw] = (r.properties.location||'').split(',');
+      const rowCity  = (cityRaw||'').trim();
+      const rowState = (stateRaw||'').trim();
+      const stateOK  = !selectedState || rowState === selectedState;
+      const cityOK   = !selectedCities.length || selectedCities.includes(rowCity);
+
+      const units = r.properties.number_of_units || 0;
+      const inUnits = units >= unitRange[0] && units <= unitRange[1];
+
+      return inVintage && inType && stateOK && cityOK && inUnits;
+    });
+
+    // Group by month and compute average per‑unit for each category
+    const map = new Map();
+    monthly.forEach(r => {
+      const y = r.year, m = r.month; if(!y || !m) return;
+      const key = `${y}-${String(m).padStart(2,'0')}`;
+      const ts = new Date(y, m-1, 1).getTime();
+      if (!map.has(key)) {
+        const base = { key, ts, label: formatMonthYear(m, y), count: 0, total: 0 };
+        EXPENSE_KEYS.forEach(k => { base[k] = 0; });
+        map.set(key, base);
+      }
+      const row = map.get(key);
+      const units = r.properties?.number_of_units || 1;
+      let rowTotalPU = 0;
+      EXPENSE_KEYS.forEach(k => {
+        const pu = (r[k] || 0) / units;
+        row[k] += pu;
+        rowTotalPU += pu;
+      });
+      row.total += rowTotalPU;
+      row.count += 1;
+    });
+
+    let arr = Array.from(map.values())
+      .map(o => {
+        const out = { key: o.key, ts: o.ts, label: o.label };
+        EXPENSE_KEYS.forEach(k => { out[k] = o.count ? o[k]/o.count : 0; });
+        out.total = o.count ? o.total/o.count : 0;
+        return out;
+      })
+      .sort((a,b)=> a.ts - b.ts);
+
+    // Respect viewMode for time span (T3/T12/All)
+    if (viewMode === 't3') arr = arr.slice(-3);
+    if (viewMode === 't12') arr = arr.slice(-12);
+    return arr;
+  }, [allExpenses, selectedVintages, selectedTypes, selectedState, selectedCities, unitRange, viewMode]);
 
   /* ---------- weighted averages (per-unit, weighted by avg_sqft_unit) ---------- */
   const weightedAvg = useMemo(() => {
@@ -341,6 +401,24 @@ export default function PropertyFilterPage(){
           </div>
         </section>
 
+        {/* NEW: Trend chart (per‑unit averages) */}
+        <section className="card trend-card">
+          <h2 className="chart-title">Average Monthly Expenses per Unit (by category)</h2>
+          <ResponsiveContainer width="100%" height={360}>
+            <LineChart data={trendData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" minTickGap={24} />
+              <YAxis tickFormatter={v=>`$${Math.round(v)}`} width={70} />
+              <Tooltip formatter={(v,name)=>[formatMoney(v), name]} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {EXPENSE_KEYS.map((k,i)=> (
+                <Line key={k} type="monotone" dataKey={k} name={LABELS[k]} stroke={COLORS[i%COLORS.length]} strokeWidth={2} dot={false} />
+              ))}
+              <Line type="monotone" dataKey="total" name="Total" stroke="#273a64" strokeWidth={3} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+
         {/* Dashboard grid */}
         <section className="pf-grid-main">
           {/* Left: Table */}
@@ -407,19 +485,6 @@ export default function PropertyFilterPage(){
             <Select menuPortalTarget={document.body} menuPosition="fixed" styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }} className="boxplot-select" options={EXPENSE_KEYS.map(k=>({value:k,label:LABELS[k]}))}
                     value={{ value:selectedCat, label:LABELS[selectedCat] }} onChange={v=>setSelectedCat(v.value)} />
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={boxPlotData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" hide />
-              <YAxis tickFormatter={v=>`$${(v/1000).toFixed(0)}k`} width={70} />
-              <Tooltip formatter={v=>formatMoney(v)} />
-              <Line type="monotone" dataKey="median" stroke="#000" dot={{ r: 3 }} strokeWidth={2} />
-              <ErrorBar dataKey="Q1" width={4} stroke="#8884d8" direction="y"
-                data={boxPlotData.map(d=>({ x:d.name, y:d.Q1, value:[d.min,d.Q3] }))} />
-              <ErrorBar dataKey="Q3" width={4} stroke="#82ca9d" direction="y"
-                data={boxPlotData.map(d=>({ x:d.name, y:d.Q3, value:[d.Q3,d.max] }))} />
-            </ComposedChart>
-          </ResponsiveContainer>
         </section>
       </main>
     </div>

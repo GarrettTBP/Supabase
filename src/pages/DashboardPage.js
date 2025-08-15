@@ -39,7 +39,7 @@ export default function DashboardPage() {
 // Primary quick actions (big cards)
 const primaryActions = [
   { label: 'Quick Export', onClick: () => navigate('/quick-export'), hint: 'Export to Excel' },
-  { label: 'Visualize Data', onClick: () => setShowAllFeatures((s) => !s), hint: 'Reveal all features below' },
+  { label: 'Visualize Data', onClick: () => navigate('/filter'), hint: 'Go to Data Filter Page' },
   { label: 'Property List', onClick: () => navigate('/properties'), hint: 'Go to Property List page' },
 ];
 
@@ -48,11 +48,7 @@ const primaryActions = [
   const allFeatures = [];
   // acquisitions
   if (role === 'acquisitions' || role === 'admin') {
-    allFeatures.push(
-      { label: 'Property List', to: '/properties' },
-      { label: 'Filter Properties', to: '/filter' },
-      { label: 'All Properties Map', to: '/map' },
-    );
+    
   }
   // asset management
   if (role === 'asset_management' || role === 'admin') {
